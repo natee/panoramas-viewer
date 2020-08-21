@@ -1,0 +1,28 @@
+{
+  "name": "panoramas-viewer",
+  "version": "0.0.1",
+  "description": "360° 全景图浏览插件",
+  "author": "natee",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/natee/panoramas-viewer.git"
+  },
+  "keywords": [
+    "panorama",
+    "threejs"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "three": "^0.119.1",
+    "tslib": "^2.0.1",
+    "vue": "^3.0.0-rc.1"
+  },
+  "devDependencies": {
+    "vite": "^1.0.0-rc.1",
+    "@vue/compiler-sfc": "^3.0.0-rc.1"
+  }
+}
