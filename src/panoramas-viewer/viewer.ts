@@ -16,22 +16,26 @@ import {
   MeshBasicMaterial,
   Mesh,
   Vector3,
-  MathUtils,
-  CanvasTexture,
-  Sprite,
-  SpriteMaterial,
 } from "three";
 
+import {
+  log,
+  throttle,
+  getLontitude,
+  latLon2WorldVector,
+  screenPos2WorldVector,
+  worldVector2ScreenPos,
+} from "./utils";
 import { Tooltip } from "./tooltip";
 
-const log = console.log;
-
 export interface IOption {
-  container: string; // 容器的CSS选择器，不提供则默认 body
-  img: string; // 图片的路径
-  sensitivity: number; // 鼠标操作时的灵敏度，默认0.1（即鼠标滑动 100px，算作球体旋转角度为 10deg）
-  minFocalLength: number; // 镜头最小拉近距离，最小焦距
-  maxFocalLength: number; // 镜头最大拉近距离，最大焦距
+  container: string, // 容器的CSS选择器，不提供则默认 body
+  img: string, // 图片的路径
+  sensitivity: number, // 鼠标操作时的灵敏度，默认0.1（即鼠标滑动 100px，算作球体旋转角度为 10deg）
+  minFocalLength: number, // 镜头最小拉近距离，最小焦距
+  maxFocalLength: number, // 镜头最大拉近距离，最大焦距
+  labels: any[],
+  enableZoom: boolean  // 允许缩放
 }
 
 const defaultOption = {
@@ -39,6 +43,8 @@ const defaultOption = {
   sensitivity: 0.1,
   minFocalLength: 8,
   maxFocalLength: 50,
+  labels: [],
+  enableZoom: false
 };
 
 export default class PanoramasViewer {
@@ -56,9 +62,6 @@ export default class PanoramasViewer {
   private _camera: PerspectiveCamera;
   private _renderer: WebGLRenderer;
 
-  // private _labelScene: Scene;
-  // private _labelCamera: OrthographicCamera;
-
   private _pointer = {
     moving: false,
     startX: 0,
@@ -71,7 +74,8 @@ export default class PanoramasViewer {
     latitude: 0,
   };
   private _cameraLookAt: Vector3 = new Vector3(0, 0, 0);
-  private tooltip: any;
+
+  _tooltip: Tooltip[] = [];
 
   public constructor(option: IOption) {
     this.option = { ...defaultOption, ...option };
@@ -106,6 +110,7 @@ export default class PanoramasViewer {
     this._initRenderer();
     this._initCamera();
     this._bindEvents();
+    this._initTooltip();
     this.draw();
   }
 
@@ -114,7 +119,6 @@ export default class PanoramasViewer {
     this.element.classList.add("psv-container");
     this.parentElement.appendChild(this.element);
   }
-
 
   _initScene() {
     this._scene.add(this._createEntry());
@@ -139,7 +143,7 @@ export default class PanoramasViewer {
   }
 
   _initRenderer() {
-    if(!this.element) return;
+    if (!this.element) return;
     this._renderer.setSize(this.width, this.height);
     this.element.appendChild(this._renderer.domElement);
   }
@@ -164,12 +168,15 @@ export default class PanoramasViewer {
   onMouseMove(event: MouseEvent) {
     if (this._pointer.moving) {
       // 全景图创建纹理时，翻转了 x 轴，所以这里需要反向计算
-      this._pointer.longtitude =
+      this._pointer.longtitude = getLontitude(
         (this._pointer.startX - event.clientX) * this.option.sensitivity +
-        this._pointer.lastLontidude;
+          this._pointer.lastLontidude
+      );
       this._pointer.latitude =
         (event.clientY - this._pointer.startY) * this.option.sensitivity +
         this._pointer.lastLatidude;
+
+      this._renderTooltip();
     }
   }
 
@@ -196,34 +203,32 @@ export default class PanoramasViewer {
     }
   }
 
-  onMouseDoubleClick(event: MouseEvent){
-    const text = prompt("请输入标记内容：")
-    this.createLabel({
-      pos: {
-        x: event.clientX,
-        y: event.clientY
-      },
-      label: text
-    })
+  onMouseDoubleClick(event: MouseEvent) {
+    const text = prompt("请输入标记内容：");
+    const tooltipPos = screenPos2WorldVector(event.clientX, event.clientY, this.width, this.height, this._camera)
+    
+    this.addLabel({
+      pos: tooltipPos,
+      data: text,
+    });
   }
 
   _bindEvents() {
-    if(!this.element) return;
+    if (!this.element) return;
 
-    this.element.addEventListener(
-      "mousedown",
-      this.onMouseDown.bind(this)
-    );
-    this.element.addEventListener(
-      "mousemove",
-      this.onMouseMove.bind(this)
-    );
+    this.element.addEventListener("mousedown", this.onMouseDown.bind(this));
+    this.element.addEventListener("mousemove", throttle(this.onMouseMove.bind(this), 30));
     this.element.addEventListener("mouseup", this.onMouseUp.bind(this));
-    // mousewheel事件已经废弃了
-    this.element.addEventListener("wheel", this.onMouseWheel.bind(this));
 
-    this.element.addEventListener("dblclick", this.onMouseDoubleClick.bind(this));
+    if(this.option.enableZoom){
+      // mousewheel事件已经废弃了
+      this.element.addEventListener("wheel", this.onMouseWheel.bind(this));
+    }
     
+    this.element.addEventListener(
+      "dblclick",
+      this.onMouseDoubleClick.bind(this)
+    );
   }
 
   /**
@@ -231,18 +236,7 @@ export default class PanoramasViewer {
    * 已知一个向量和 X 轴和 Y 轴的夹角，求该向量和 球体相交点的坐标
    */
   _computeMousePosition() {
-    // 纬度方向旋转不能超过正负 85 度角（即接近南北极附近）
-    this._pointer.latitude = Math.max(
-      -85,
-      Math.min(85, this._pointer.latitude)
-    );
-
-    // 角度转弧度 radian = (2π / 360) * degreee
-    const radianY = MathUtils.degToRad(this._pointer.latitude);
-    const radianX = MathUtils.degToRad(this._pointer.longtitude);
-    this._cameraLookAt.x = this.RADIUS * Math.cos(radianY) * Math.cos(radianX);
-    this._cameraLookAt.y = this.RADIUS * Math.sin(radianY);
-    this._cameraLookAt.z = this.RADIUS * Math.cos(radianY) * Math.sin(radianX);
+    this._cameraLookAt = latLon2WorldVector(this.RADIUS, this._pointer.latitude, this._pointer.longtitude);
     this._camera.lookAt(this._cameraLookAt);
   }
 
@@ -254,18 +248,40 @@ export default class PanoramasViewer {
     this._renderer.render(this._scene, this._camera);
   }
 
-  /**
-   * 创建文字标签
-   */
-  createLabel(option: any) {
-    const tooltip = new Tooltip({
-      container: this.element,
-      width: 0,
-      height: 0,
+  addLabel(option: any) {
+    this.option.labels.push({
       pos: option.pos,
-      data: option.label,
+      data: option.data
     });
+
+    this._tooltip.push(new Tooltip({
+      container: this.element,
+      pos: option.pos,
+      data: option.data,
+    }));
+
+    this._renderTooltip();
   }
 
-  _renderLabel() {}
+  _initTooltip(){
+    this._tooltip = [];
+    this.option.labels.forEach((item) => {
+      this._tooltip.push(
+        new Tooltip({
+          container: this.element,
+          pos: item.pos,
+          data: item.data,
+        })
+      );
+    });
+
+    this._renderTooltip()
+  }
+
+  _renderTooltip() {
+    this._tooltip.forEach((tooltip) => {
+      tooltip.coordinate = worldVector2ScreenPos(tooltip.pos, this.width, this.height, this._camera)
+      tooltip.show();
+    });
+  }
 }
