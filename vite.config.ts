@@ -1,4 +1,4 @@
 module.exports = {
-  base: "./",
+  // base: "https://natee.github.io/panoramas-viewer/",
   outDir: "docs"
 }
