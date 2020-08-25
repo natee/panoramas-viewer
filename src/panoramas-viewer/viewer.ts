@@ -27,31 +27,50 @@ import {
   worldVector2ScreenPos,
 } from "./utils";
 import { Tooltip } from "./tooltip";
+import { Navbar, IMarkerOption } from "./navbar";
+
+export interface IVectorPos {
+  x: number;
+  y: number;
+  z: number;
+}
+export interface ILabel {
+  pos: IVectorPos;
+  data: string;
+}
 
 export interface IOption {
-  container: string, // 容器的CSS选择器，不提供则默认 body
-  img: string, // 图片的路径
-  sensitivity: number, // 鼠标操作时的灵敏度，默认0.1（即鼠标滑动 100px，算作球体旋转角度为 10deg）
-  minFocalLength: number, // 镜头最小拉近距离，最小焦距
-  maxFocalLength: number, // 镜头最大拉近距离，最大焦距
-  labels: any[],
-  enableZoom: boolean  // 允许缩放
+  container: string; // 容器的CSS选择器，不提供则默认 body
+  img: string; // 图片的路径
+  sensitivity?: number; // 鼠标操作时的灵敏度，默认0.1（即鼠标滑动 100px，算作球体旋转角度为 10deg）
+  minFocalLength?: number; // 镜头最小拉近距离，最小焦距
+  maxFocalLength?: number; // 镜头最大拉近距离，最大焦距
+  enableZoom?: boolean; // 允许缩放
+  labels?: ILabel[];
+  marker?: IMarkerOption
 }
+
+type IFullOption = Required<IOption>;
 
 const defaultOption = {
   container: "body",
   sensitivity: 0.1,
   minFocalLength: 8,
   maxFocalLength: 50,
+  enableZoom: false,
   labels: [],
-  enableZoom: false
+  marker: {
+    enable: true,
+    add() {},
+    clear() {},
+  }
 };
 
 export default class PanoramasViewer {
   // 想象一下脑海里有一个地球仪，球体半径
   private RADIUS: number = 1000;
 
-  public option: IOption;
+  public option: IFullOption;
 
   private parentElement: HTMLElement;
   private element: HTMLElement | undefined;
@@ -111,6 +130,7 @@ export default class PanoramasViewer {
     this._initCamera();
     this._bindEvents();
     this._initTooltip();
+    this._initNavbar();
     this.draw();
   }
 
@@ -203,28 +223,46 @@ export default class PanoramasViewer {
     }
   }
 
-  onMouseDoubleClick(event: MouseEvent) {
-    const text = prompt("请输入标记内容：");
-    const tooltipPos = screenPos2WorldVector(event.clientX, event.clientY, this.width, this.height, this._camera)
-    
-    this.addLabel({
+  async onMouseDoubleClick(event: MouseEvent) {
+    const text: string = prompt("请输入标记内容：") || "";
+    const tooltipPos = screenPos2WorldVector(
+      event.clientX,
+      event.clientY,
+      this.width,
+      this.height,
+      this._camera
+    );
+    const data = {
       pos: tooltipPos,
       data: text,
-    });
+    };
+    const marker = this.option.marker
+
+    try {
+      if (marker.add) {
+        marker.add(data);
+      }
+      this.addLabel(data);
+    } catch (err) {
+      throw `添加失败:${err}`;
+    }
   }
 
   _bindEvents() {
     if (!this.element) return;
 
     this.element.addEventListener("mousedown", this.onMouseDown.bind(this));
-    this.element.addEventListener("mousemove", throttle(this.onMouseMove.bind(this), 30));
+    this.element.addEventListener(
+      "mousemove",
+      throttle(this.onMouseMove.bind(this), 30)
+    );
     this.element.addEventListener("mouseup", this.onMouseUp.bind(this));
 
-    if(this.option.enableZoom){
+    if (this.option.enableZoom) {
       // mousewheel事件已经废弃了
       this.element.addEventListener("wheel", this.onMouseWheel.bind(this));
     }
-    
+
     this.element.addEventListener(
       "dblclick",
       this.onMouseDoubleClick.bind(this)
@@ -236,7 +274,11 @@ export default class PanoramasViewer {
    * 已知一个向量和 X 轴和 Y 轴的夹角，求该向量和 球体相交点的坐标
    */
   _computeMousePosition() {
-    this._cameraLookAt = latLon2WorldVector(this.RADIUS, this._pointer.latitude, this._pointer.longtitude);
+    this._cameraLookAt = latLon2WorldVector(
+      this.RADIUS,
+      this._pointer.latitude,
+      this._pointer.longtitude
+    );
     this._camera.lookAt(this._cameraLookAt);
   }
 
@@ -248,40 +290,76 @@ export default class PanoramasViewer {
     this._renderer.render(this._scene, this._camera);
   }
 
-  addLabel(option: any) {
+  addLabel(option: ILabel) {
     this.option.labels.push({
       pos: option.pos,
-      data: option.data
+      data: option.data,
     });
 
-    this._tooltip.push(new Tooltip({
-      container: this.element,
-      pos: option.pos,
-      data: option.data,
-    }));
+    this._tooltip.push(
+      new Tooltip({
+        container: this.element,
+        pos: option.pos,
+        data: option.data,
+      })
+    );
 
     this._renderTooltip();
   }
 
-  _initTooltip(){
+  _initTooltip() {
     this._tooltip = [];
     this.option.labels.forEach((item) => {
       this._tooltip.push(
         new Tooltip({
           container: this.element,
-          pos: item.pos,
+          // 存的是Vector3(x,y,z)的参数，需转化
+          pos: new Vector3(item.pos.x, item.pos.y, item.pos.z),
           data: item.data,
         })
       );
     });
 
-    this._renderTooltip()
+    setTimeout(() => {
+      this._renderTooltip();
+    }, 200);
   }
 
   _renderTooltip() {
     this._tooltip.forEach((tooltip) => {
-      tooltip.coordinate = worldVector2ScreenPos(tooltip.pos, this.width, this.height, this._camera)
+      tooltip.coordinate = worldVector2ScreenPos(
+        new Vector3(tooltip.pos.x, tooltip.pos.y, tooltip.pos.z),
+        this.width,
+        this.height,
+        this._camera
+      );
       tooltip.show();
     });
+  }
+
+  // 从画布中移除标签
+  clearLabels() {
+    this._tooltip.forEach((tooltip) => {
+      tooltip.destroy()
+    });
+    this._tooltip = [];
+    this.option.labels = [];
+  }
+
+  _initNavbar() {
+    const marker = this.option.marker
+    
+    new Navbar({
+      container: this.element,
+      marker: {
+        ...marker,
+        clear: () => {
+          if(marker.clear) {
+            marker.clear()
+          }
+          this.clearLabels();
+        }
+      }
+    })
   }
 }

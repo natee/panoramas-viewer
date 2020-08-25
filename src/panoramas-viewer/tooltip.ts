@@ -1,58 +1,64 @@
+import { uuidv4 } from "./utils";
+import { IVectorPos } from "./viewer";
+
 export interface ICoordinate {
-  x: number,
-  y: number
+  x: number;
+  y: number;
 }
 export interface ITooltipOption {
-  container: HTMLElement | undefined,
-  width?: number,
-  height?: number,
-  pos: Vector3,
-  data: string
+  container: HTMLElement | undefined;
+  width?: number;
+  height?: number;
+  pos: IVectorPos;
+  data: string;
 }
 
-import { Vector3 } from "three";
-import { uuidv4 } from "./utils";
-
-export class Tooltip {
+export class Tooltip implements ITooltipOption {
   _id: string;
   container: HTMLElement | undefined;
   coordinate: ICoordinate;
-  pos: Vector3;
+  pos: IVectorPos;
   data: string;
-  
-  element: HTMLElement | undefined
 
-  constructor(option: ITooltipOption){
+  element: HTMLElement | undefined;
+
+  constructor(option: ITooltipOption) {
     this._id = "t_" + uuidv4();
     this.container = option.container;
-    this.coordinate = { x: 0, y: 0};
+    this.coordinate = { x: 0, y: 0 };
     this.pos = option.pos;
     this.data = option.data;
-    this.setup()
+    this.setup();
   }
 
-  setup(){
-    this.createTooltip()
+  setup() {
+    this.createTooltip();
   }
 
-  createTooltip(){
+  createTooltip() {
     this.element = document.createElement("div");
     this.element.className = "psv-tooltip";
-    if(this.container){
+    if (this.container) {
       this.container.appendChild(this.element);
     }
 
     this.element.innerHTML = this.data;
   }
 
-  show(){
+  show() {
     this._computeTooltipPosition();
   }
 
-  _computeTooltipPosition(){
-    if(!this.element) return;
+  _computeTooltipPosition() {
+    if (!this.element) return;
 
-    this.element.style.left = `${this.coordinate.x}px`
-    this.element.style.top = `${this.coordinate.y}px`
+    this.element.style.left = `${this.coordinate.x}px`;
+    this.element.style.top = `${this.coordinate.y}px`;
+  }
+
+  destroy() {
+    if (this.element) {
+      this.container?.removeChild(this.element);
+    }
   }
 }

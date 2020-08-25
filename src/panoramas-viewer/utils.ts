@@ -46,7 +46,7 @@ export function screenPos2WorldVector(
   width: number,
   height: number,
   camera: Camera
-) {
+): Vector3 {
   const pX = (x / width) * 2 - 1;
   const pY = -(y / height) * 2 + 1;
   const vector = new Vector3(pX, pY, -1).unproject(camera);
