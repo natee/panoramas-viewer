@@ -11,7 +11,7 @@ export interface INavbarOption {
 
 export interface IMarkerOption {
   enable?: boolean;
-  add?: (label: { pos: IVectorPos; data: string }) => void;
+  add?: (label: ILabel[]) => void;
   clear?: () => void;
 }
 

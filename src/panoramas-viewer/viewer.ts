@@ -192,6 +192,8 @@ export default class PanoramasViewer {
         (this._pointer.startX - event.clientX) * this.option.sensitivity +
           this._pointer.lastLontidude
       );
+      // this._pointer.longtitude = (this._pointer.startX - event.clientX) * this.option.sensitivity +
+      //     this._pointer.lastLontidude;
       this._pointer.latitude =
         (event.clientY - this._pointer.startY) * this.option.sensitivity +
         this._pointer.lastLatidude;
@@ -225,6 +227,8 @@ export default class PanoramasViewer {
 
   async onMouseDoubleClick(event: MouseEvent) {
     const text: string = prompt("请输入标记内容：") || "";
+    if(text === "") return;
+
     const tooltipPos = screenPos2WorldVector(
       event.clientX,
       event.clientY,
@@ -240,12 +244,29 @@ export default class PanoramasViewer {
 
     try {
       if (marker.add) {
-        marker.add(data);
+        marker.add([...this.option.labels, data]);
       }
       this.addLabel(data);
     } catch (err) {
       throw `添加失败:${err}`;
     }
+  }
+
+  addLabel(option: ILabel) {
+    this.option.labels.push({
+      pos: option.pos,
+      data: option.data,
+    });
+
+    this._tooltip.push(
+      new Tooltip({
+        container: this.element,
+        pos: option.pos,
+        data: option.data,
+      })
+    );
+
+    this._renderTooltip();
   }
 
   _bindEvents() {
@@ -288,23 +309,6 @@ export default class PanoramasViewer {
     });
     this._computeMousePosition();
     this._renderer.render(this._scene, this._camera);
-  }
-
-  addLabel(option: ILabel) {
-    this.option.labels.push({
-      pos: option.pos,
-      data: option.data,
-    });
-
-    this._tooltip.push(
-      new Tooltip({
-        container: this.element,
-        pos: option.pos,
-        data: option.data,
-      })
-    );
-
-    this._renderTooltip();
   }
 
   _initTooltip() {

@@ -1,4 +1,4 @@
-import { MathUtils, Vector2, Vector3, Camera } from "three";
+import { MathUtils, Vector3, Camera, VectorKeyframeTrack } from "three";
 
 export const log = console.log;
 
@@ -62,9 +62,17 @@ export function worldVector2ScreenPos(
 ) {
   const vector = worldVector.clone().project(camera);
 
+  // vector.z > 1 表示在 camera 的背面同一个坐标点
+  if(vector.z > 1){
+    return {
+      x: 9999,
+      y: 9999
+    }
+  }
   return {
     x: Math.round(((vector.x + 1) * width) / 2),
     y: Math.round(((1 - vector.y) * height) / 2),
+    z: vector.z
   };
 }
 

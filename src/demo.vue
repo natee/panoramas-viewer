@@ -20,8 +20,8 @@ export default {
   components: {},
   setup() {
     const schemaId: Ref<string> = ref("");
-    let labels = getMarker();
     onMounted(() => {
+      let labels = getMarker();
       const viewer = new PanoramasViewer({
         container: ".demo",
         img: imgP3,
@@ -33,9 +33,9 @@ export default {
       });
     });
 
-    function saveLabel(newLabel: ILabel){
+    function saveLabel(data: ILabel[]){
       console.log('save')
-      saveMarker([...labels, newLabel])
+      saveMarker(data)
     }
 
     function removeLabelFromAPI(){

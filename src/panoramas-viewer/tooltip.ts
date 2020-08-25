@@ -1,4 +1,4 @@
-import { uuidv4 } from "./utils";
+import { uuidv4, log } from "./utils";
 import { IVectorPos } from "./viewer";
 
 export interface ICoordinate {
@@ -52,8 +52,10 @@ export class Tooltip implements ITooltipOption {
   _computeTooltipPosition() {
     if (!this.element) return;
 
-    this.element.style.left = `${this.coordinate.x}px`;
-    this.element.style.top = `${this.coordinate.y}px`;
+    const halfWidth = 0.5 * this.element.offsetWidth;
+    const height = this.element.offsetHeight;
+    this.element.style.left = `${this.coordinate.x - halfWidth}px`;
+    this.element.style.top = `${this.coordinate.y - height}px`;
   }
 
   destroy() {
