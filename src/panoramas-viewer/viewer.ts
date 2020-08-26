@@ -42,6 +42,7 @@ export interface ILabel {
 export interface IOption {
   container: string; // 容器的CSS选择器，不提供则默认 body
   img: string; // 图片的路径
+  auto?: boolean; // 自动旋转
   sensitivity?: number; // 鼠标操作时的灵敏度，默认0.1（即鼠标滑动 100px，算作球体旋转角度为 10deg）
   minFocalLength?: number; // 镜头最小拉近距离，最小焦距
   maxFocalLength?: number; // 镜头最大拉近距离，最大焦距
@@ -54,6 +55,7 @@ type IFullOption = Required<IOption>;
 
 const defaultOption = {
   container: "body",
+  auto: false,
   sensitivity: 0.1,
   minFocalLength: 8,
   maxFocalLength: 50,
@@ -198,7 +200,7 @@ export default class PanoramasViewer {
         (event.clientY - this._pointer.startY) * this.option.sensitivity +
         this._pointer.lastLatidude;
 
-      this._renderTooltip();
+      // this._renderTooltip();
     }
   }
 
@@ -309,6 +311,11 @@ export default class PanoramasViewer {
     });
     this._computeMousePosition();
     this._renderer.render(this._scene, this._camera);
+    this._renderTooltip();
+
+    if(this.option.auto === true) {
+      this._pointer.longtitude += 0.05
+    }
   }
 
   _initTooltip() {

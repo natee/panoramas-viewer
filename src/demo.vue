@@ -25,6 +25,7 @@ export default {
       const viewer = new PanoramasViewer({
         container: ".demo",
         img: imgP3,
+        auto: true,
         labels: labels,
         marker: {
           add: saveLabel,
