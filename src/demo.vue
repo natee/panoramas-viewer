@@ -14,7 +14,7 @@ import * as THREE from "three";
 import { onMounted, Ref, ref } from "vue";
 import PanoramasViewer, { ILabel } from "./panoramas-viewer/viewer";
 import { getMarker, saveMarker, removeMarker } from "./js/fetch";
-import imgP3 from "./img/p4.png";
+import dynamicPic from "./img/p7.jpg";
 export default {
   name: "Demo",
   components: {},
@@ -24,7 +24,7 @@ export default {
       let labels = getMarker();
       const viewer = new PanoramasViewer({
         container: ".demo",
-        img: imgP3,
+        img: dynamicPic,
         auto: true,
         labels: labels,
         marker: {

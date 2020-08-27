@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>360°全景图预览</title>
+    <style>
+      #demo {
+        width: 1000px;
+        height: 600px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="demo"></div>
+
+    <script src="https://unpkg.com/three@0.119.1/build/three.js"></script>
+    <script src="./tutorials.js"></script>
+    <script>
+    
+      // import PanoramasViewer from "./tutorials.js";
+      const viewer = new PanoramasViewer({
+        container: "#demo",
+        img: "./p7.jpg",
+      });
+    </script>
+  </body>
+</html>

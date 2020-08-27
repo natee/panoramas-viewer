@@ -1,4 +1,4 @@
-import { MathUtils, Vector3, Camera, VectorKeyframeTrack } from "three";
+import { MathUtils, Vector3, Camera } from "three";
 
 export const log = console.log;
 

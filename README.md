@@ -2,15 +2,19 @@
 
 panoramas-viewer 是一个全景图浏览插件，你可以在现代浏览器上使用该插件预览 360 x 180 的全景图。
 
+说明：本项目为学习使用，不用于生产环境，如果你需要在生产环境使用类似功能，强烈建议你使用优秀开源项目 [Photo-Sphere-Viewer](https://github.com/mistic100/Photo-Sphere-Viewer) 。
+
+
+## 示例
+
+![demo.gif](assets/demo.gif)
+
+[在线 DEMO](https://natee.github.io/panoramas-viewer/)，源码看 `src/demo.vue`。
+
+
 ## 使用方法
 
-### 在线预览
-
-[DEMO](https://natee.github.io/panoramas-viewer/)，源码看 `src/demo.vue`。
-
-### 本地使用
-
-_说明：你需要直接拷贝 `src/panoramas-viewer` 目录。_
+拷贝 `src/panoramas-viewer` 目录。
 
 依赖 
 - `TypeScript`
@@ -178,14 +182,9 @@ const viewer = new PanoramasViewer({
   ...
   
 
-## 基础知识
+## 教程
 
-高中数学知识，求球体表面点的坐标，模型如下（`ThreeJS` 中坐标系 X 轴是朝右的，这里之所按这种方向建立坐标系，是因为实现过程中把 X 轴翻转了）：
-
-![](assets/坐标系.jpg)
-
-_图是用 [drawio](https://www.diagrams.net/) 画的_
-
+[手把手教你实现 360° 全景图预览插件](./tutorials/tutorials.md)
 
 ## 许可证
 
