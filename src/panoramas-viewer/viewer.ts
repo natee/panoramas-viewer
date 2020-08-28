@@ -77,8 +77,8 @@ export default class PanoramasViewer {
   private parentElement: HTMLElement;
   private element: HTMLElement | undefined;
 
-  private width: number;
-  private height: number;
+  private width!: number;
+  private height!: number;
   private _scene: Scene;
   private _camera: PerspectiveCamera;
   private _renderer: WebGLRenderer;
@@ -103,16 +103,8 @@ export default class PanoramasViewer {
     this.parentElement = document.querySelector(
       this.option.container
     ) as HTMLElement;
-    const {
-      width,
-      height,
-    }: DOMRect = this.parentElement.getBoundingClientRect();
-
+    this.updateSize();
     this.createView();
-
-    this.width = width;
-    this.height = height;
-
     this._scene = new Scene();
     this._camera = new PerspectiveCamera(
       75,
@@ -134,6 +126,12 @@ export default class PanoramasViewer {
     this._initTooltip();
     this._initNavbar();
     this.draw();
+  }
+
+  updateSize(){
+    const { width, height }: DOMRect = this.parentElement.getBoundingClientRect()
+    this.width = width;
+    this.height = height;
   }
 
   createView() {
@@ -179,6 +177,7 @@ export default class PanoramasViewer {
   }
 
   onMouseDown(event: MouseEvent) {
+    log(event)
     event.preventDefault();
     this._pointer.moving = true;
     this._pointer.startX = event.clientX;
@@ -194,17 +193,40 @@ export default class PanoramasViewer {
         (this._pointer.startX - event.clientX) * this.option.sensitivity +
           this._pointer.lastLontidude
       );
-      // this._pointer.longtitude = (this._pointer.startX - event.clientX) * this.option.sensitivity +
-      //     this._pointer.lastLontidude;
       this._pointer.latitude =
         (event.clientY - this._pointer.startY) * this.option.sensitivity +
         this._pointer.lastLatidude;
-
-      // this._renderTooltip();
     }
   }
 
   onMouseUp(event: MouseEvent) {
+    this._pointer.moving = false;
+  }
+
+  // 直接忽略多指操作的情况
+  onTouchStart(event: TouchEvent) {
+    event.preventDefault();
+    this._pointer.moving = true;
+    this._pointer.startX = event.touches[0].clientX;
+    this._pointer.startY = event.touches[0].clientY;
+    this._pointer.lastLontidude = this._pointer.longtitude;
+    this._pointer.lastLatidude = this._pointer.latitude;
+  }
+
+  onTouchMove(event: TouchEvent) {
+    if (this._pointer.moving) {
+      // 全景图创建纹理时，翻转了 x 轴，所以这里需要反向计算
+      this._pointer.longtitude = getLontitude(
+        (this._pointer.startX - event.touches[0].clientX) * this.option.sensitivity +
+          this._pointer.lastLontidude
+      );
+      this._pointer.latitude =
+        (event.touches[0].clientY - this._pointer.startY) * this.option.sensitivity +
+        this._pointer.lastLatidude;
+    }
+  }
+
+  onTouchEnd(event: TouchEvent) {
     this._pointer.moving = false;
   }
 
@@ -275,10 +297,7 @@ export default class PanoramasViewer {
     if (!this.element) return;
 
     this.element.addEventListener("mousedown", this.onMouseDown.bind(this));
-    this.element.addEventListener(
-      "mousemove",
-      throttle(this.onMouseMove.bind(this), 30)
-    );
+    this.element.addEventListener("mousemove", throttle(this.onMouseMove.bind(this), 30));
     this.element.addEventListener("mouseup", this.onMouseUp.bind(this));
 
     if (this.option.enableZoom) {
@@ -286,10 +305,19 @@ export default class PanoramasViewer {
       this.element.addEventListener("wheel", this.onMouseWheel.bind(this));
     }
 
-    this.element.addEventListener(
-      "dblclick",
-      this.onMouseDoubleClick.bind(this)
-    );
+    this.element.addEventListener("dblclick", this.onMouseDoubleClick.bind(this));
+
+    // 移动端事件
+    this.element.addEventListener("touchstart", this.onTouchStart.bind(this));
+    this.element.addEventListener("touchmove", throttle(this.onTouchMove.bind(this), 30));
+    this.element.addEventListener("touchend", this.onTouchEnd.bind(this));
+
+    window.addEventListener("resize", throttle(() => {
+      this.updateSize();
+      this._camera.aspect = this.width / this.height;
+      this._camera.updateProjectionMatrix();
+      this._renderer.setSize( this.width, this.height );
+    }, 30));
   }
 
   /**
