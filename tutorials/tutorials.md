@@ -1,5 +1,32 @@
 # 手把手教你实现 360° 全景图预览插件
 
+## 目录
+
+  - [原理](#原理)
+  - [基础知识](#基础知识)
+    - [平面坐标点](#平面坐标点)
+    - [空间坐标点](#空间坐标点)
+  - [实现过程](#实现过程)
+    - [1. 定义用法](#1-定义用法)
+    - [2. ThreeJS 渲染一个球体](#2-threejs-渲染一个球体)
+      - [2.1 创建球体](#21-创建球体)
+      - [2.2 渲染球体](#22-渲染球体)
+      - [2.3 添加坐标轴观察](#23-添加坐标轴观察)
+    - [3. 渲染全景图](#3-渲染全景图)
+      - [3.1 球体添加纹理](#31-球体添加纹理)
+      - [3.2 修改相机位置](#32-修改相机位置)
+      - [3.3 修正渲染方向](#33-修正渲染方向)
+    - [4. 事件处理](#4-事件处理)
+      - [4.1 自旋转](#41-自旋转)
+      - [4.2 鼠标拖拽](#42-鼠标拖拽)
+    - [5. 全景标记](#5-全景标记)
+      - [5.1 基本思路](#51-基本思路)
+      - [5.2 记录标记的位置](#52-记录标记的位置)
+      - [5.3 屏幕坐标点转经纬度](#53-屏幕坐标点转经纬度)
+      - [5.4 经纬度转屏幕坐标点](#54-经纬度转屏幕坐标点)
+      - [5.5 最终效果](#55-最终效果)
+  - [后序](#后序)
+
 ## 原理
 
 - 利用 `ThreeJS` 在 `canvas` 中画一个球体，将全景图作为球体的纹理填充，然后把相机 `camera` 置于坐标系原点即可看到全景图的渲染。
@@ -127,7 +154,7 @@ render(){
 
 ![axes.png](../assets/t2.png)
 
-### 3. 渲染图片
+### 3. 渲染全景图
 
 #### 3.1 球体添加纹理
 
@@ -230,7 +257,7 @@ _createBall() {
 
 ![t6.png](../assets/t6.png)
 
-### 4. 动起来
+### 4. 事件处理
 
 现在这个球体只是一次性渲染，为了让它动起来，我们需要增加持续渲染事件，我们用 `requestAnimationFrame` 来修改渲染函数。
 
@@ -404,6 +431,204 @@ _computeLookAt() {
 
 ### 5. 全景标记
 
+#### 5.1 基本思路
+
+点击屏幕时记录鼠标的位置，然后把位置属性赋值给标记，标记绝对定位显示即可。这里我们绑定双击添加标记。
+
+```js
+onMouseClick(e){
+  const text = prompt("请输入标记内容：") || "";
+  if(text === "") return;
+  const pos = {x: e.clientX, y: e.clientY};
+  this.createLabel({ pos, text })
+}
+
+createLabel({ pos, text }){
+  const labelDom = document.createElement("div");
+  labelDom.classList.add("psv-label");
+  labelDom.style.position = "absolute";
+  labelDom.style.color = "#FFF";
+  labelDom.style.backgroundColor = "rgba(0,0,0,0.6)";
+  labelDom.style.padding = "5px";
+  labelDom.style.left = pos.x + "px";
+  labelDom.style.top = pos.y + "px";
+  labelDom.innerText = text;
+  this._container.appendChild(labelDom);
+}
+
+bindEvents() {
+  this._container.addEventListener("dblclick", this.onMouseClick.bind(this));
+}
+```
+
+如图，我们给屋顶增加来一个标记。
+
+![t9.png](../assets/t9.png)
+
+这段代码的实现有一个很明显的问题就是：当图拖动时，标记的位置没有跟随变。所以接下来需要把屏幕坐标点处理成经纬度。
+
+#### 5.2 记录标记的位置
+
+_注：本段内容仅为开发思路，是一个错误的结果，可以跳过进入下一段，也可以勉强看看。_
+
+我们之前规定了鼠标移动 100px 表示视野旋转 10º ，那么我们是否可以通过这个关系来处理呢？试试看吧。
+
+- 当前相机朝向对应的经纬度 `rotateX` 和 `rotateY`
+- 当前相机朝向对应的屏幕坐标 `(0.5 * width, 0.5 * height)`
+- 根据当前点击坐标和相机指向坐标的距离得到经纬度偏移量
+- 纬度越大说明 y 越小，经度越大说明 x 越大
+
+大概是这样：
+
+```js
+onMouseClick(e){
+  const text = prompt("请输入标记内容：") || "";
+  if(text === "") return;
+  const pos = this.getLatLonFromScreen({ x: e.clientX, y: e.clientY });
+  this.createLabel({ pos, text })
+}
+
+getLatLonFromScreen({ x, y }){
+  const newLon = this.lastRotateX + 0.1 * (x - 0.5 * this.width);
+  const newLat = this.lastRotateY - 0.1 * (y - 0.5 * this.height);
+  return { x: newLon, y: newLat }
+}
+```
+
+但是这样渲染出来的标记位置肯定是错误的，应该把这个经纬度反转化为屏幕坐标点后渲染出来。
+
+```js
+getScreenFromLatLon({ lon, lat }){
+  const x = (lon - this.lastRotateX) * 10 + 0.5 * this.width;
+  const y = 0.5 * this.height - (lat - this.lastRotateY) * 10;
+  return { x, y}
+}
+createLabel({ pos, text }){
+  const screen = this.getScreenFromLatLon(pos);
+  labelDom.style.left = screen.x + "px";
+  labelDom.style.top = screen.y + "px";
+}
+```
+
+基本思路就是这样，然后我们在拖拽视野时，需要更新每个标记在屏幕上的位置。
+
+- 把添加标记和渲染标记拆分
+- 渲染标记时实时计算坐标
+
+```js
+onMouseClick(e){
+  // ...
+  this.labels.push({ pos, text});
+}
+renderLabel(label){
+  // ...
+  label._elem = labelDom;
+}
+_fixTooltipPos(){
+  this.labels.forEach(l => {
+    const screen = this.getScreenFromLatLon(l.pos);
+    if(!l._rendered){
+      this.renderLabel(l)
+      l._rendered = true;
+    }else{
+      // 更新坐标
+      l._elem.style.left = screen.x + "px";
+      l._elem.style.top = screen.y + "px";
+    }
+  })
+}
+draw() {
+  // ...
+  this._fixTooltipPos();
+}
+```
+
+现在我们拖拽画面，看一下标记的位置是否更新了。
+
+![t10.png](../assets/t10.png)
+
+可以看到，标记的位置确实更新了，但是却并不准确。这是因为视野内的方形区域并非是纯粹的二维坐标系，而是球体三维坐标，我们全部按照像素和角度 0.1 的关系（二维关系）去计算是错误的。
+
+
+#### 5.3 屏幕坐标点转经纬度
+
+我们创建标记时，在屏幕中的坐标是 `(x, y)`，需要将其转化为经纬度（或者经纬度对应的三维坐标 `(x, y, z)`）存储。
+
+借助 Three.js 中的 `Vector3(x, y, z).unproject(camera)` 可以达成这种转化，代码如下：
+
+```js
+screenPos2WorldVector(x, y, width, height, camera) {
+  const pX = (x / width) * 2 - 1;
+  const pY = -(y / height) * 2 + 1;
+  const vector = new Vector3(pX, pY, -1).unproject(camera);
+  return vector;
+}
+```
+
+#### 5.4 经纬度转屏幕坐标点
+
+同样的，在渲染标记时，我们把存储的三维坐标转化为屏幕二维坐标，代码如下：
+
+```js
+worldVector2ScreenPos(worldVector, width, height, camera) {
+  const vector = worldVector.clone().project(camera);
+  return {
+    x: Math.round(((vector.x + 1) * width) / 2),
+    y: Math.round(((1 - vector.y) * height) / 2),
+    z: vector.z
+  };
+}
+```
+
+#### 5.5 最终效果
+
+我们把之前的 `getLatLonFromScreen` 和 `getScreenFromLatLon` 分别替换为 `screenPos2WorldVector` 和 `worldVector2ScreenPos` 方法，如下：
+
+```js
+onMouseClick(e){
+  const text = prompt("请输入标记内容：") || "";
+  if(text === "") return;
+  const pos = this.screenPos2WorldVector(event.clientX, event.clientY, this.width, this.height, this._camera);
+  this.labels.push({ pos, text});
+}
+
+_fixTooltipPos(){
+  this.labels.forEach(l => {
+    const screen = this.worldVector2ScreenPos(
+      new Vector3(l.pos.x, l.pos.y, l.pos.z), 
+      this.width, 
+      this.height, 
+      this._camera
+  })
+}
+```
+
+现在我们看一下效果：
+
+![t11.gif](../assets/t11.gif)
+
+还没完，当我们水平方向旋转超过 180 度时，诡异的情况发生了，标记在对立的位置出现了。
+
+![t12.png](../assets/t12.png)
+
+这是因为相机背面的点也被投射到了屏幕上，所以我们需要判断如果转到了对立面，则隐藏相应坐标。
+
+```js
+worldVector2ScreenPos(worldVector, width, height, camera) {
+  const vector = worldVector.clone().project(camera);
+  // vector.z > 1 表示在 camera 的背面同一个坐标点
+  if(vector.z > 1){
+    return { x: 9999, y: 9999 }
+  }
+  return {
+    x: Math.round(((vector.x + 1) * width) / 2),
+    y: Math.round(((1 - vector.y) * height) / 2),
+    z: vector.z
+  };
+}
+```
+
+Great! 我们已经完成了全景图的预览和标记的创建。
 
 ## 后序
 

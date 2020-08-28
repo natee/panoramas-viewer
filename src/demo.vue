@@ -14,7 +14,7 @@ import * as THREE from "three";
 import { onMounted, Ref, ref } from "vue";
 import PanoramasViewer, { ILabel } from "./panoramas-viewer/viewer";
 import { getMarker, saveMarker, removeMarker } from "./js/fetch";
-import dynamicPic from "./img/p7.jpg";
+import dynamicPic from "./img/p4.png";
 export default {
   name: "Demo",
   components: {},

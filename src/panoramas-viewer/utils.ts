@@ -62,6 +62,7 @@ export function worldVector2ScreenPos(
 ) {
   const vector = worldVector.clone().project(camera);
 
+  // https://stackoverflow.com/questions/29816080/convert-point3d-to-screen2d-get-wrong-result-in-three-js
   // vector.z > 1 表示在 camera 的背面同一个坐标点
   if(vector.z > 1){
     return {
